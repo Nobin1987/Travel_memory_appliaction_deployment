@@ -1,0 +1,55 @@
+pipeline {
+    agent any
+    environment {
+        GIT_REPO = 'https://github.com/Nobin1987/Travel_memory_appliaction_deployment.git'
+        DOCKERHUB_ID = 'nobin1987'
+        DOCKERHUB_USERNAME = 'nobin1987'
+        DOCKERHUB_REPO = 'jenkins-class'
+    }
+
+    stages {
+        stage('Hello') {
+            agent{ label 'node2-agent'}
+            steps {
+                echo 'Hello World'
+            }
+        }
+        stage('Code Cloning') {
+            steps {
+                git branch: 'docker_creation', url: "${env.GIT_REPO}"
+            }
+        }
+        stage("parallel build")  {
+                parallel{
+                    stage('Build frontend Docker') {
+                        steps {
+                            script {
+                                dir('frontend') {
+                                    docker.build("${env.DOCKERHUB_USERNAME}/${env.DOCKERHUB_REPO}:frontend-${env.BUILD_ID}")
+                                }
+                            }
+                        }
+                    }
+                    stage('Build backend Docker') {
+                        steps {
+                            script {
+                                dir('backend') {
+                                    docker.build("${env.DOCKERHUB_USERNAME}/${env.DOCKERHUB_REPO}:backend-${env.BUILD_ID}")
+                                }
+                            }
+                        }
+                    }
+                }
+        }
+        stage('Pushing the Docker Images') {
+            steps {
+                script {
+                    docker.withRegistry('', "${env.DOCKERHUB_ID}") {
+                        docker.image("${env.DOCKERHUB_USERNAME}/${env.DOCKERHUB_REPO}:frontend-${env.BUILD_ID}").push()
+                        docker.image("${env.DOCKERHUB_USERNAME}/${env.DOCKERHUB_REPO}:backend-${env.BUILD_ID}").push()
+                    }
+                }
+            }
+        }
+    }
+}
